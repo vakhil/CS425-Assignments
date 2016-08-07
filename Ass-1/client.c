@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
    struct hostent *server;
    
    char* buffer = (char*)malloc(4096*(sizeof(char)));
-   char* buffer2 = (char*)malloc(4096*(sizeof(char)));
+ 
    
    if (argc < 3) {
       fprintf(stderr,"usage %s hostname port\n", argv[0]);
@@ -53,21 +53,38 @@ int main(int argc, char *argv[]) {
    //memset(buffer , 0, 4095);
    //bzero(buffer,4095);
    n = fread(buffer,1,255,rx);
-   
+   printf("%s\n",buffer );
    if (n < 0) {
       perror("ERROR reading from socket");
       exit(1);
    }
 
-   printf("%s\n",buffer);
-   
-   printf("Please type the name of the file\n");
-   //memset(buffer , 0, 4095);
-   scanf("%s",buffer2);
-   printf("%s\n",buffer2);
-   n = fwrite(buffer2 , 1 , 4096 , tx );
-   fflush(tx);
 
+while(1)
+{
+   printf("Please type the name of the file : ");
+   memset(buffer , 0, 4095);
+   fgets(buffer,4095,stdin);
+   
+   n = fwrite(buffer , 1 , 4095 , tx );
+   fflush(tx);
+   printf("The text from above file is:" );
+
+memset(buffer , '\0', 4095);
+
+while(1)
+{
+n = fread(buffer,1,4095,rx);
+
+printf("%s",buffer );
+if(buffer[4090] == '\0' )
+{
+break;
+printf("\n");
+}
+
+}
+}
 fclose(rx);
 fclose(tx);
    //bzero(buffer,4096);
