@@ -4,8 +4,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <fcntl.h>
 
 
+
+int descrip;
 int main(int argc, char* argv[])
 {
   //First call to socket function
@@ -32,7 +35,7 @@ int main(int argc, char* argv[])
   //This loop suggests to continously wait for all clients
   while(1)
     {
-    int descrip = accept(sock_desc , (struct sockaddr*) &client_addr , &addrlen);
+     descrip = accept(sock_desc , (struct sockaddr*) &client_addr , &addrlen);
     if(descrip == -1)
       fputs("Descirptor not successfully returned!!", stderr);
 
@@ -40,7 +43,6 @@ int main(int argc, char* argv[])
     //Client is connected
     printf("Client is connected\n");
     //Buffer size of length 4096 for reading inputs from clients and sending message to clients
-    char* buf = (char*)malloc(4096*(sizeof(char)));
 
     /* read stream */
     //FILE* rx = fdopen(descrip, "r");
@@ -53,6 +55,8 @@ int main(int argc, char* argv[])
     //This loop indicates that server listens to a particular client unless it closes it's connection
     while(1)
       {
+       char* buf = (char*)malloc(4096*(sizeof(char)));
+       memset(buf,0,4096);
       //This fread is for reading the file's name from the client
       int number =read(descrip, buf, 4096);
 
@@ -62,7 +66,9 @@ int main(int argc, char* argv[])
         exit(1);
       }
 
-      printf("THIS is it %s\n",buf );
+      printf("%s\n",buf );
+
+      
 
       char file_name[30];
       memset(file_name,0,sizeof(file_name));
@@ -87,10 +93,12 @@ int main(int argc, char* argv[])
           {
             memset(file_name,0,30);
             strcat(file_name,"index.html");
-            printf("Good boy %s\n",file_name );
+            //printf("Good boy %s\n",file_name );
           }
           
           FILE* fp = fopen(file_name, "r");
+         // memset(file_name,0,sizeof(file_name));
+          memset(buf,0,4096);
           if(!fp)
           {
             char error[1000];
@@ -106,6 +114,7 @@ int main(int argc, char* argv[])
             
 
             int n = write(descrip,error,1000);
+            memset(error,0,1000);
 
           }
 
@@ -121,34 +130,35 @@ int main(int argc, char* argv[])
           memset(content_type,0, 20);
           if( !strcmp(extension,"lmth") || !strcmp(extension,"mth"))
           {
-            
-            strcat(content_type ,"text/html");
+            sprintf(content_type, "text/html");
+            //strcat(content_type ,"text/html");
           }
 
           if( !strcmp(extension,"txt"))
           {
-            
-            strcat(content_type ,"text/plain");
+            sprintf(content_type, "text/plain");
+           // strcat(content_type ,"text/plain");
           }
 
           if( !strcmp(extension,"gepj") || !strcmp(extension,"gpj"))
           {
-            
-            strcat(content_type ,"image/jpeg");
+            sprintf(content_type, "image/jpeg");
+           // strcat(content_type ,"image/jpeg");
           }
 
           if( !strcmp(extension,"fig"))
           {
-            
-            strcat(content_type ,"image/gif");
+            sprintf(content_type, "image/gif");
+            //strcat(content_type ,"image/gif");
           }          
 
           if( !strcmp(extension,"fdp"))
           {
-            
-            strcat(content_type ,"Application/pdf");
+            sprintf(content_type, "Application/pdf"); 
+            //strcat(content_type ,"Application/pdf");
           }
 
+          //memset(content_type,0,20);
           
           fseek(fp, 0L, SEEK_END);
           int sz = ftell(fp);
@@ -164,101 +174,75 @@ int main(int argc, char* argv[])
 
           
 
-          char *final = (char*)malloc(sizeof(char)*(sz+300));
-          strcat(final , "HTTP/1.1 200 OK\r\n");
-          strcat(final, "Content-Length: ");
-          char file_sz[10];
-          memset(file_sz,0, 10);
-          sprintf(file_sz, "%d", sz-1);
-          strcat(final,file_sz);
-          strcat(final,"\r\nContent-Type: ");
-          strcat(final, content_type);
-           strcat(final, "\r\nConnection: Keep-Alive\r\n\r\n");
-          strcat(final, text);
+          char *final = (char*)malloc(sizeof(char)*(300));
+          memset(final,0, 300);
+
+          sprintf(final , "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: Keep-Alive\r\n\r\n",sz-1,content_type);
+
+          // send_BIB(descrip, final ,300);
+           char* msg1 = final;
+           //printf("JAFFA is %c\n",msg1[0] );
+           int msglen1 = strlen(final);
+             while (msglen1 > 0)
+            {
+                 int len = write(descrip, msg1, msglen1);
+                 if (len <= 0) 
+                  return;
+                 msg1 += len;
+                 msglen1 -= len;
+                 
+            }
+
+
+           int bytes ;
+           int file = open(file_name, O_RDONLY);
+           memset(buf, 0, 4096);
+           
+          while ((bytes = read(file, buf, sizeof(buf))) > 0)
+              { // send_BIB(descrip, buf, bytes); 
+                char *msg =  buf;
+                 int msglen = bytes;
+                 while ( msglen > 0)
+                  {
+                       int len = write(descrip, msg, msglen);
+                       if (len <= 0) 
+                        return;
+                       msg = msg + len;
+                       msglen = msglen - len;
+                  }
+              }
+          //strcat(final, text);
 
           
 
-          int n = write(descrip,final,sz+300);
-          printf("Number is %d\n",n );
-
-
+          //int n = write(descrip,final,sz+300);
+          //printf("Number is %d\n",n );
+              
+              free(buf);
+              free(final);
 
       }
-      //i counts the number of characters in the name of the file name sent by client
-      int i;
-      for (i = 0; buf[i] != '\0'; i++)
-        {
-          
-        }
-      //f_name is the file's name as sent by client.
-      char* f_name = (char*)malloc(i*(sizeof(char)));
-      int j;i--;
-      for (j = 0; j < i; j++)
-        {
-          f_name[j] = buf[j];
-        }
-      //Since buf is no longer used, we initialize it to NULL
-      memset(buf, 0, sizeof(buf));
-      //Opens the file here
-      FILE* fp = fopen(f_name, "r");
-      //This is for knowing the size of the requested file and sending it to client
-
-      //If file does not exist, the following at the bottom happens
-      if (!fp) 
-        {
-          int size = 0;
-          char sizes[10];
-          sprintf(sizes, "%d", size);
-          //fwrite(sizes,1,10,tx);
-          snprintf(buf, 4096, "Wrong file name!\n ");
-
-          //fwrite(buf,1,4096, tx);
-        }
-      //if file opens succesfully, all the text sending part to client happens here
-      else 
-        {
-          fseek(fp, 0L, SEEK_END);
-          //This is done to know the size of the file
-          int size = ftell(fp);
-          char sizes[10];
-          sprintf(sizes, "%d", size);
-          //telling the client the size of the file
-          //fwrite(sizes,1,10,tx);
-          //Resetting the file pointer
-          rewind(fp);
-          int c;
-          i = 0;
-          int done = 1;
-          //This while loop runs till it reaches the end of file
-          while(1)
-            {
-              if(i == 4096)
-                {
-            //      fwrite(buf,1,4096,tx);
-                  memset(buf,0,4096);
-                  i= 0;
-                }
-              c = fgetc(fp);
-              buf[i] = (char) c;
-              //The while loop breaks out here if end of file is reached
-              if(feof(fp))
-                { 
-                   break ;
-                }
-              i++;
-            }
-          //If the file is not exatly of size 4096 bytes
-          if(i!=0)
-            {
-              buf[i] = '\0';
-              //fwrite(buf,1,4096,tx);
-            }
-          }
-      
+  
+    printf("Good Boy\n");    
       //fflush(tx);
       }
     //fclose(rx);
     //fclose(tx);
     }
   return 0;
+}
+
+
+
+void response (void *message, int msglen)
+{
+    char *msg = (char*) message;
+
+    while (msglen > 0)
+    {
+         int len = write(descrip, msg, msglen);
+         if (len <= 0) return;
+         msg += len;
+         msglen -= len;
+    }
 }
