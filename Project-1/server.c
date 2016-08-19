@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     {
       //Listening is stopped on the socket
       close(sock_desc);
-      //This is a buffer used for sending the service to the client
+      //This is a buffer used for recieving the service from the client
       char* buf = (char*)malloc(4096*(sizeof(char)));
       memset(buf,0,4096);
       //This fread is for reading the request from browser or client
@@ -56,7 +56,8 @@ int main(int argc, char* argv[])
         exit(1);
       }
 
-      // printf("%s\n",buf );
+      //Printing the client's GET Request
+       printf("%s\n",buf );
 
       //Array used for storing the file-name
       char file_name[30];
@@ -123,7 +124,7 @@ int main(int argc, char* argv[])
               char *final = (char*)malloc(sizeof(char)*(300));
               memset(final,0, 300);
             
-              sprintf(final, "HTTP/1.1 404 Not Found\r\nServer: NCSA/1.5\r\nContent-type: text/html\r\n\r\nThe file is not found");
+              sprintf(final, "HTTP/1.1 404 Not Found\r\nServer: NCSA/1.5\r\nContent-type: text/html\r\n\r\n  <h1> ERROR 404 . The file is not found </h1>");
               char* msg1 = final;
            
            //The following ensures that no part of message is left behind in the buffer and it is transferred fully
@@ -234,6 +235,10 @@ int main(int argc, char* argv[])
           }
 
           free(buf);
+      }
+      else
+      {
+
       }
     //Close the descriptor and close down the child process
     close(descrip);
