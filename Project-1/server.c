@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <fcntl.h>
-
+#include <unistd.h>
 
 
 int descrip;
@@ -31,33 +31,23 @@ int main(int argc, char* argv[])
     fputs("Cannot listen on the port!!", stderr);
 
   int addrlen = sizeof(struct sockaddr);
-
-  //This loop suggests to continously wait for all clients
-  while(1)
+  pid_t pid;
+  //This loop suggests that the server is running continously
+  for(;;)
     {
      descrip = accept(sock_desc , (struct sockaddr*) &client_addr , &addrlen);
     if(descrip == -1)
       fputs("Descirptor not successfully returned!!", stderr);
 
-
-    //Client is connected
-    printf("Client is connected\n");
-    //Buffer size of length 4096 for reading inputs from clients and sending message to clients
-
-    /* read stream */
-    //FILE* rx = fdopen(descrip, "r");
-    /*write stream */
-    //FILE* tx = fdopen(dup(descrip), "w");
-
-    
-
-    
-    //This loop indicates that server listens to a particular client unless it closes it's connection
-    while(1)
-      {
-       char* buf = (char*)malloc(4096*(sizeof(char)));
-       memset(buf,0,4096);
-      //This fread is for reading the file's name from the client
+    //Child process is spawned to service the client
+    if ( (pid = fork()) == 0 ) 
+    {
+      //Listening is stopped on the socket
+      close(sock_desc);
+      //This is a buffer used for sending the service to the client
+      char* buf = (char*)malloc(4096*(sizeof(char)));
+      memset(buf,0,4096);
+      //This fread is for reading the request from browser or client
       int number =read(descrip, buf, 4096);
 
       if(number < 0 )
@@ -66,183 +56,192 @@ int main(int argc, char* argv[])
         exit(1);
       }
 
-      printf("%s\n",buf );
+      // printf("%s\n",buf );
 
-      
-
+      //Array used for storing the file-name
       char file_name[30];
       memset(file_name,0,sizeof(file_name));
-      //To ensure that the message is a GET Request
+      //Checking whether the request is a GET Request
       if(buf[0]=='G' && buf[1]=='E' && buf[2] == 'T')
       {   
+
           int j;
+          //Determine the end of first line. Necessary for calculating the file name.
           for (j = 4; buf[j] != '\r' && buf[j+1] != '\n'; ++j)
           {
             
           }
           int k;
+          // File name is known after the loop ends
           for(k= 5; k < j-9 ; k++)
           {
             file_name[k-5] = buf[k];
           }
-          file_name[k-5] = '\0';
+          
 
-          int y =0;
-          
-          if(  ((int)strlen(file_name)) == 0   )
+          int y =0;                    
+          int check = 0;
+          //This string is the final filename string i.e the original filename appended by "./webfiles/"
+          char* files;
+          files = (char *)malloc(90*sizeof(char));
+          memset(files,'\0',90);
+
+          //If no file-name is specified,re-direct it to index.html
+          if(  ((int)strlen(file_name)) == 0  )
           {
+
             memset(file_name,0,30);
-            strcat(file_name,"index.html");
-            //printf("Good boy %s\n",file_name );
+            sprintf(file_name,"webfiles/index.html");
           }
-          
-          FILE* fp = fopen(file_name, "r");
-         // memset(file_name,0,sizeof(file_name));
+
+          //If file name is given as / again redirect it to index.html
+          else if( file_name[k-6] == '/')
+          {
+            strcat(file_name, "index.html");
+          }
+
+          //To ensure any file asked, the path is appended by "./webfiles/"
+          else
+          {
+            check = 1;            
+            sprintf(files, "webfiles/");
+            strcat(files,file_name);
+          }
+
+          FILE* fp;
+
+          //This if check is quite redundant and just there because I did not want to take risks at last minute
+          if(check == 0)
+            fp = fopen(file_name, "r");
+          else
+            fp = fopen(files,"r");         
+
           memset(buf,0,4096);
+          //If file does not exist, make the client know about it
           if(!fp)
           {
-            char error[1000];
-            memset(error,0,1000);
-            sprintf(&error[0], "HTTP/1.0 404 Not Found\r\n "
-                         "Server: NCSA/1.5\r\n"
-                "Content-type: text/html\r\n"
-                "\r\n"
-                "<HEAD><TITLE>404 Not Found</TITLE></HEAD>\r\n"
-                "<BODY><H1>404 Not Found</H1>\r\n"
-                "The requested URL was not found on this server. Please come back after some time !!!\r\n "
-                "</BODY>");
+              char *final = (char*)malloc(sizeof(char)*(300));
+              memset(final,0, 300);
             
-
-            int n = write(descrip,error,1000);
-            memset(error,0,1000);
-
-          }
-
-          char extension[20];
-          for (y = 0; file_name[k-6] != '.' ; y++ , k--)
-          {
-            extension[y] = file_name[k-6];
-          }
-          extension[y] = '\0';
-          printf("extension is %d\n",(int)strlen(extension) );
-          
-          char *content_type = (char*)malloc(sizeof(char)*(20));
-          memset(content_type,0, 20);
-          if( !strcmp(extension,"lmth") || !strcmp(extension,"mth"))
-          {
-            sprintf(content_type, "text/html");
-            //strcat(content_type ,"text/html");
-          }
-
-          if( !strcmp(extension,"txt"))
-          {
-            sprintf(content_type, "text/plain");
-           // strcat(content_type ,"text/plain");
-          }
-
-          if( !strcmp(extension,"gepj") || !strcmp(extension,"gpj"))
-          {
-            sprintf(content_type, "image/jpeg");
-           // strcat(content_type ,"image/jpeg");
-          }
-
-          if( !strcmp(extension,"fig"))
-          {
-            sprintf(content_type, "image/gif");
-            //strcat(content_type ,"image/gif");
-          }          
-
-          if( !strcmp(extension,"fdp"))
-          {
-            sprintf(content_type, "Application/pdf"); 
-            //strcat(content_type ,"Application/pdf");
-          }
-
-          //memset(content_type,0,20);
-          
-          fseek(fp, 0L, SEEK_END);
-          int sz = ftell(fp);
-          rewind(fp);
-          char* text = (char*)malloc(sizeof(char)*(sz));
-          int p = 0;
-          char ch;
-          while ((ch=fgetc(fp)) != EOF)
-          {
-            text[p] = ch;
-            p++;
-          }
-
-          
-
-          char *final = (char*)malloc(sizeof(char)*(300));
-          memset(final,0, 300);
-
-          sprintf(final , "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: Keep-Alive\r\n\r\n",sz-1,content_type);
-
-          // send_BIB(descrip, final ,300);
-           char* msg1 = final;
-           //printf("JAFFA is %c\n",msg1[0] );
-           int msglen1 = strlen(final);
-             while (msglen1 > 0)
-            {
-                 int len = write(descrip, msg1, msglen1);
-                 if (len <= 0) 
-                  return;
-                 msg1 += len;
-                 msglen1 -= len;
-                 
-            }
-
-
-           int bytes ;
-           int file = open(file_name, O_RDONLY);
-           memset(buf, 0, 4096);
+              sprintf(final, "HTTP/1.1 404 Not Found\r\nServer: NCSA/1.5\r\nContent-type: text/html\r\n\r\nThe file is not found");
+              char* msg1 = final;
            
-          while ((bytes = read(file, buf, sizeof(buf))) > 0)
-              { // send_BIB(descrip, buf, bytes); 
-                char *msg =  buf;
-                 int msglen = bytes;
-                 while ( msglen > 0)
-                  {
-                       int len = write(descrip, msg, msglen);
-                       if (len <= 0) 
-                        return;
-                       msg = msg + len;
-                       msglen = msglen - len;
-                  }
+           //The following ensures that no part of message is left behind in the buffer and it is transferred fully
+             int msglen1 = strlen(final);
+               while (msglen1 > 0)
+              {
+                   int len = write(descrip, msg1, msglen1);
+                   if (len <= 0) 
+                    return;
+                   msg1 += len;
+                   msglen1 -= len;
+                   
               }
-          //strcat(final, text);
+          }
+          //If file exists
+          else
+          {   //This array stores the extension of the file requested
+              char extension[20];
+              for (y = 0; file_name[k-6] != '.'  && (k-6)>0; y++ , k--)
+              {
+                extension[y] = file_name[k-6];
+              }
+              extension[y] = '\0';
 
-          
+              //Based on the different extension, attach different  content-type to the server response. The extension is read from behind and hence the names are reverse
+              char *content_type = (char*)malloc(sizeof(char)*(20));
+              memset(content_type,0, 20);
+              if( !strcmp(extension,"lmth") || !strcmp(extension,"mth"))
+              {
+                sprintf(content_type, "text/html");
+              }
 
-          //int n = write(descrip,final,sz+300);
-          //printf("Number is %d\n",n );
-              
-              free(buf);
-              free(final);
+              if( !strcmp(extension,"txt"))
+              {
+                sprintf(content_type, "text/plain");
+              }
 
+              if( !strcmp(extension,"gepj") || !strcmp(extension,"gpj"))
+              {
+                sprintf(content_type, "image/jpeg");
+              }
+
+              if( !strcmp(extension,"fig"))
+              {
+                sprintf(content_type, "image/gif");
+              }          
+
+              if( !strcmp(extension,"fdp"))
+              {
+                sprintf(content_type, "Application/pdf"); 
+              }
+
+              //To knwo the size of the file requested
+              fseek(fp, 0L, SEEK_END);
+              int sz = ftell(fp);
+              rewind(fp);
+             
+             //Store the file requested in text array
+              char* text = (char*)malloc(sizeof(char)*(sz));
+              int p = 0;
+              char ch;
+              while ((ch=fgetc(fp)) != EOF)
+              {
+                text[p] = ch;
+                p++;
+              }
+
+              //final contains the response to the client which requests the file
+              char *final = (char*)malloc(sizeof(char)*(300));
+              memset(final,0, 300);
+
+              sprintf(final , "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: Keep-Alive\r\n\r\n",sz-1,content_type);
+              //Again to ensure that no chunk of data is left behind
+               char* msg1 = final;
+               int msglen1 = strlen(final);
+                 while (msglen1 > 0)
+                {
+                     int len = write(descrip, msg1, msglen1);
+                     if (len <= 0) 
+                      return;
+                     msg1 += len;
+                     msglen1 -= len;                     
+                }
+               int bytes ;
+               int file;
+               //Again redudncay like before . If condition is not required
+               if(check ==0 )
+               file = open(file_name, O_RDONLY);
+             else
+               file = open(files, O_RDONLY);
+               memset(buf, 0, 4096);
+               
+              while ((bytes = read(file, buf, sizeof(buf))) > 0)
+                  { 
+                    char *msg =  buf;
+                     int msglen = bytes;
+                     while ( msglen > 0)
+                      {
+                           int len = write(descrip, msg, msglen);                           
+                           if (len <= 0) 
+                            return;
+                           msg = msg + len;
+                           msglen = msglen - len;
+                      }
+                  }
+                  //Free the pointers
+                  free(final);
+          }
+
+          free(buf);
       }
-  
-    printf("Good Boy\n");    
-      //fflush(tx);
-      }
-    //fclose(rx);
-    //fclose(tx);
+    //Close the descriptor and close down the child process
+    close(descrip);
+    exit(0);   
+    }
+      close(descrip);
     }
   return 0;
 }
 
 
-
-void response (void *message, int msglen)
-{
-    char *msg = (char*) message;
-
-    while (msglen > 0)
-    {
-         int len = write(descrip, msg, msglen);
-         if (len <= 0) return;
-         msg += len;
-         msglen -= len;
-    }
-}
