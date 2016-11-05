@@ -78,4 +78,6 @@ void sr_print_if_list(struct sr_instance* );
 /* -- sr_arpcache.c and sr_router.c -- */
 void handle_arpreq(struct sr_instance* , struct sr_arpreq* );
 
+void matching(struct sr_instance* sr, struct sr_rt* route, uint32_t dest_ip, struct sr_rt* longs);
+
 #endif /* SR_ROUTER_H */
