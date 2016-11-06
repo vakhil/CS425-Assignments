@@ -163,7 +163,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
   printf("*** -> Received packet of lengths %d\n",len);
 
-
+  print_hdrs(packet,len);
 
   
   sr_ethernet_hdr_t* header = (sr_ethernet_hdr_t*) packet ;
@@ -176,6 +176,9 @@ void sr_handlepacket(struct sr_instance* sr,
     uint32_t dest_ip = htonl(ip->ip_dst);
     uint32_t longest_match =0;
    int send_router = 0; /* This value indicates whether a packet is sent to a router's interface*/
+
+
+
     while(route != NULL)
     {
       if(dest_ip == ntohl(sr_get_interface(sr,route->interface)->ip))
@@ -193,8 +196,13 @@ void sr_handlepacket(struct sr_instance* sr,
       }
       route = route -> next;
     }
+
+    /*print_addr_ip_int(longs->dest.s_addr);*/
     if(send_router == 1)
     {
+
+/*      if(ip->ip_p == ip_protocol_icmp)
+      {*/
 
       uint8_t* new_packet = (uint8_t*) malloc(sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t));
       char temp[ETHER_ADDR_LEN];
@@ -210,16 +218,50 @@ void sr_handlepacket(struct sr_instance* sr,
 /*      memcpy(new_packet+sizeof(sr_ethernet_hdr_t),(uint8_t*)ip,sizeof(sr_ip_hdr_t));
 */      sr_icmp_hdr_t* icmp = (sr_icmp_hdr_t *)(packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
       icmp->icmp_type = 0;
-      icmp->icmp_code = 0;
       icmp->icmp_sum = 0;
       icmp->icmp_sum = cksum(icmp,sizeof(sr_icmp_hdr_t));
 /*      memcpy(new_packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t),(uint8_t*)(icmp),sizeof(sr_icmp_hdr_t));
-*/      sr_send_packet(sr,packet,len,interface);
-      print_hdrs(new_packet,sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t));
-  
-
+*/    sr_send_packet(sr,packet,len,interface);
+      print_hdrs(packet,len);
     return;
+      /*}*/
+
+
     }
+
+/*    ip->ip_ttl--;
+    if(ip->ip_ttl == 0)
+    {
+      printf("AKHIL\n");
+      print_hdrs(packet,len);
+      uint8_t* new_packet = (uint8_t*) malloc(sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+      sr_ethernet_hdr_t* eth = (sr_ethernet_hdr_t*) new_packet;
+      sr_ethernet_hdr_t* orig_eth = (sr_ethernet_hdr_t*) packet;
+      memcpy(eth->ether_dhost,orig_eth->ether_shost,ETHER_ADDR_LEN);
+      memcpy(eth->ether_shost,sr_get_interface(sr,interface)->addr,ETHER_ADDR_LEN);
+      eth->ether_type = orig_eth->ether_type;
+
+      sr_ip_hdr_t* ip = (sr_ip_hdr_t*) (new_packet+sizeof(sr_ethernet_hdr_t));
+      sr_ip_hdr_t* orig_ip = (sr_ip_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t));
+      memcpy(ip,orig_ip,sizeof(sr_ip_hdr_t));
+      ip->ip_len = ntohs(sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+      ip->ip_p = ip_protocol_icmp;
+      ip->ip_ttl = 64;
+      ip->ip_src = sr_get_interface(sr,interface)->ip;
+      ip->ip_dst = orig_ip->ip_src;
+      ip->ip_sum = 0;
+      ip->ip_sum = cksum(ip,sizeof(sr_ip_hdr_t));
+
+      sr_icmp_t3_hdr_t* icmp = (sr_icmp_t3_hdr_t*) (new_packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+      icmp->icmp_type = 11;
+      icmp->icmp_code = 0;
+      memcpy(icmp->data,orig_ip,ICMP_DATA_SIZE);
+      icmp->icmp_sum = 0;
+      icmp->icmp_sum = cksum(icmp,sizeof(sr_icmp_t3_hdr_t));
+      print_hdrs(new_packet,sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+      sr_send_packet(sr, new_packet, sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t),interface);
+      return;
+    }*/
 
     struct sr_if* inter = sr_get_interface(sr,longs->interface);
     struct sr_arpentry *entry = sr_arpcache_lookup(&(sr->cache), longs->dest.s_addr );
@@ -280,11 +322,14 @@ void sr_handlepacket(struct sr_instance* sr,
           eth->ether_type = htons(ethertype_ip);
           memcpy(eth->ether_shost,inter->addr ,ETHER_ADDR_LEN);
           memcpy(eth->ether_dhost,arp->ar_sha ,ETHER_ADDR_LEN);
-          sr_send_packet(sr,(uint8_t*) eth, packet->len ,packet->iface);
+
+          sr_send_packet(sr, packet->buf, packet->len ,packet->iface);
           packet = packet->next;
         }
       }
       sr_arpreq_destroy(&(sr->cache),reply);
+
+
       return;
     }
   }
